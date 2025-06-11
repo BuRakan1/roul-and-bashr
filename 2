@@ -1967,1307 +1967,519 @@
                 self.view_student_profile()
 
     def export_student_to_word(self, student_info, attendance_records):
-        """
-        تصدير بيانات المتدرب الشاملة إلى ملف Word (البيانات الأساسية + الحضور + المخالفات)
+    """
+    تصدير بيانات المتدرب الشاملة إلى ملف Word بتصميم احترافي وخطوط واضحة
+    """
+    try:
+        # التأكد من وجود مكتبة python-docx
+        from docx import Document
+        from docx.shared import Pt, Inches, RGBColor
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.enum.table import WD_TABLE_ALIGNMENT
+        from docx.oxml.ns import nsdecls
+        from docx.oxml import parse_xml
+        
+        # استخراج المعلومات من البيانات
+        nid = student_info[0]
+        name = student_info[1]
+        rank = student_info[2]
+        course = student_info[3]
+        phone = student_info[4]
+        is_excluded = student_info[5]
+        exclusion_reason = student_info[6] if is_excluded == 1 else ""
+        excluded_date = student_info[7] if is_excluded == 1 else ""
 
-        Args:
-            student_info: معلومات المتدرب (national_id, name, rank, course, ...)
-            attendance_records: سجلات الحضور والغياب للمتدرب
-        """
-        try:
-            # التأكد من وجود مكتبة python-docx
-            if 'Document' not in globals():
-                messagebox.showerror("خطأ",
-                                     "لم يتم العثور على مكتبة python-docx. قم بتثبيتها باستخدام: pip install python-docx")
-                return
+        # إنشاء مستند جديد
+        doc = Document()
 
-            # استخراج المعلومات من البيانات
-            nid = student_info[0]
-            name = student_info[1]
-            rank = student_info[2]
-            course = student_info[3]
-            phone = student_info[4]
-            is_excluded = student_info[5]
-            exclusion_reason = student_info[6] if is_excluded == 1 else ""
-            excluded_date = student_info[7] if is_excluded == 1 else ""
+        # إعداد المستند
+        section = doc.sections[0]
+        section.page_width = Inches(8.5)
+        section.page_height = Inches(11)
+        section.left_margin = Inches(0.5)
+        section.right_margin = Inches(0.5)
+        section.top_margin = Inches(0.5)
+        section.bottom_margin = Inches(0.5)
 
-            # إنشاء مستند جديد
-            doc = Document()
+        # ============= رأس التقرير =============
+        # إضافة شعار أو خط زخرفي
+        header_line = doc.add_paragraph("━" * 50)
+        header_line.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # العنوان الرئيسي
+        main_title = doc.add_paragraph()
+        main_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        title_run = main_title.add_run('التقرير الشامل لبيانات المتدرب')
+        title_run.font.size = Pt(36)
+        title_run.font.bold = True
+        title_run.font.name = 'Arial'
+        title_run.font.color.rgb = RGBColor(0, 0, 128)  # أزرق داكن
 
-            # إعداد المستند للغة العربية (RTL)
-            section = doc.sections[0]
-            section.page_width = Inches(8.5)
-            section.page_height = Inches(11)
-            section.left_margin = Inches(0.8)
-            section.right_margin = Inches(0.8)
-            section.top_margin = Inches(0.8)
-            section.bottom_margin = Inches(0.8)
+        # العنوان الفرعي
+        subtitle = doc.add_paragraph()
+        subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        subtitle_run = subtitle.add_run(f'الدورة: {course}')
+        subtitle_run.font.size = Pt(24)
+        subtitle_run.font.bold = True
+        subtitle_run.font.name = 'Arial'
+        subtitle_run.font.color.rgb = RGBColor(64, 64, 64)
 
-            # ============= القسم الأول: البيانات الأساسية =============
-            # إضافة عنوان المستند
-            title = doc.add_heading('تقرير بيانات المتدرب الشامل', level=0)
-            title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            for run in title.runs:
-                run.font.size = Pt(18)
-                run.font.bold = True
-                run.font.rtl = True
+        # التاريخ
+        date_para = doc.add_paragraph()
+        date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        date_run = date_para.add_run(f'تاريخ التقرير: {current_date}')
+        date_run.font.size = Pt(16)
+        date_run.font.name = 'Arial'
+        date_run.font.color.rgb = RGBColor(128, 128, 128)
 
-            # إضافة معلومات الدورة
-            course_info = doc.add_paragraph()
-            course_info.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            course_info.add_run(f"الدورة: {course}").bold = True
-            for run in course_info.runs:
-                run.font.rtl = True
-                run.font.size = Pt(14)
+        doc.add_paragraph("━" * 50).alignment = WD_ALIGN_PARAGRAPH.CENTER
+        doc.add_paragraph()
 
-            # إضافة خط أفقي
-            border_paragraph = doc.add_paragraph()
-            border_paragraph.paragraph_format.border_bottom = True
+        # ============= معلومات المتدرب الأساسية =============
+        # عنوان القسم
+        section1_title = doc.add_paragraph()
+        section1_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        s1_run = section1_title.add_run('【 بيانات المتدرب الأساسية 】')
+        s1_run.font.size = Pt(28)
+        s1_run.font.bold = True
+        s1_run.font.name = 'Arial'
+        s1_run.font.color.rgb = RGBColor(0, 100, 0)  # أخضر داكن
 
-            # إضافة معلومات المتدرب
-            student_section = doc.add_paragraph()
-            student_section.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            student_section_run = student_section.add_run('معلومات المتدرب الأساسية')
-            student_section_run.bold = True
-            student_section_run.font.size = Pt(14)
-            student_section_run.font.rtl = True
+        doc.add_paragraph()
 
-            # إنشاء جدول لمعلومات المتدرب
-            table = doc.add_table(rows=1, cols=2)
-            table.style = 'Table Grid'
+        # جدول المعلومات الأساسية بتصميم محسن
+        info_table = doc.add_table(rows=8 if is_excluded == 1 else 6, cols=2)
+        info_table.style = 'Table Grid'
+        info_table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
-            # إضافة البيانات إلى الجدول
-            row = table.rows[0].cells
-            row[0].text = name
-            row[1].text = 'الاسم'
+        # البيانات
+        info_data = [
+            ("الاسم الكامل", name),
+            ("رقم الهوية", nid),
+            ("الرتبة", rank),
+            ("اسم الدورة", course),
+            ("رقم الجوال", phone),
+            ("حالة المتدرب", "❌ مستبعد" if is_excluded == 1 else "✅ نشط")
+        ]
 
-            row = table.add_row().cells
-            row[0].text = nid
-            row[1].text = 'رقم الهوية'
+        if is_excluded == 1:
+            info_data.extend([
+                ("سبب الاستبعاد", exclusion_reason),
+                ("تاريخ الاستبعاد", excluded_date)
+            ])
 
-            row = table.add_row().cells
-            row[0].text = rank
-            row[1].text = 'الرتبة'
+        # ملء الجدول
+        for i, (label, value) in enumerate(info_data):
+            row = info_table.rows[i]
+            
+            # خلية التسمية
+            label_cell = row.cells[1]
+            label_cell.text = label
+            label_para = label_cell.paragraphs[0]
+            label_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            label_run = label_para.runs[0] if label_para.runs else label_para.add_run(label)
+            label_run.font.size = Pt(18)
+            label_run.font.bold = True
+            label_run.font.name = 'Arial'
+            
+            # تلوين خلية التسمية
+            shading_elm1 = parse_xml(r'<w:shd {} w:fill="4472C4"/>'.format(nsdecls('w')))
+            label_cell._element.get_or_add_tcPr().append(shading_elm1)
+            label_run.font.color.rgb = RGBColor(255, 255, 255)  # نص أبيض
+            
+            # خلية القيمة
+            value_cell = row.cells[0]
+            value_cell.text = value
+            value_para = value_cell.paragraphs[0]
+            value_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            value_run = value_para.runs[0] if value_para.runs else value_para.add_run(value)
+            value_run.font.size = Pt(20)
+            value_run.font.bold = True
+            value_run.font.name = 'Arial'
+            
+            # تلوين خلية القيمة
+            if i == 5 and is_excluded == 1:  # حالة مستبعد
+                value_run.font.color.rgb = RGBColor(255, 0, 0)
+            
+            # حجم الخلايا
+            row.height = Inches(0.6)
 
-            row = table.add_row().cells
-            row[0].text = course
-            row[1].text = 'الدورة'
+        # عرض الأعمدة
+        for row in info_table.rows:
+            row.cells[0].width = Inches(4)
+            row.cells[1].width = Inches(2.5)
 
-            row = table.add_row().cells
-            row[0].text = phone
-            row[1].text = 'رقم الجوال'
+        # ============= ملخص الإحصائيات =============
+        doc.add_page_break()
+        
+        # عنوان القسم
+        stats_title = doc.add_paragraph()
+        stats_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        st_run = stats_title.add_run('【 ملخص إحصائيات الحضور والغياب 】')
+        st_run.font.size = Pt(28)
+        st_run.font.bold = True
+        st_run.font.name = 'Arial'
+        st_run.font.color.rgb = RGBColor(128, 0, 128)  # بنفسجي
 
-            row = table.add_row().cells
-            row[0].text = "مستبعد" if is_excluded == 1 else "نشط"
-            row[1].text = 'حالة المتدرب'
+        doc.add_paragraph()
 
-            if is_excluded == 1:
-                row = table.add_row().cells
-                row[0].text = exclusion_reason
-                row[1].text = 'سبب الاستبعاد'
+        # حساب الإحصائيات
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT 
+                COUNT(CASE WHEN status = 'حاضر' THEN 1 END) as present,
+                COUNT(CASE WHEN status = 'غائب' THEN 1 END) as absent,
+                COUNT(CASE WHEN status = 'متأخر' THEN 1 END) as late,
+                COUNT(CASE WHEN status = 'غائب بعذر' THEN 1 END) as excused,
+                COUNT(CASE WHEN status = 'لم يباشر' THEN 1 END) as not_started,
+                COUNT(CASE WHEN status = 'تطبيق ميداني' THEN 1 END) as field_app,
+                COUNT(CASE WHEN status = 'يوم طالب' THEN 1 END) as student_day,
+                COUNT(CASE WHEN status = 'مسائية / عن بعد' THEN 1 END) as evening,
+                COUNT(CASE WHEN status = 'حالة وفاة' THEN 1 END) as death,
+                COUNT(CASE WHEN status = 'منوم' THEN 1 END) as hospital,
+                COUNT(*) as total
+            FROM attendance
+            WHERE national_id=?
+        """, (nid,))
+        
+        stats = cursor.fetchone()
 
-                row = table.add_row().cells
-                row[0].text = excluded_date
-                row[1].text = 'تاريخ الاستبعاد'
+        # إنشاء بطاقات الإحصائيات
+        stats_data = [
+            ("✅ الحضور", stats[0], "34A853"),
+            ("❌ الغياب", stats[1], "EA4335"),
+            ("⏰ التأخير", stats[2], "FBBC05"),
+            ("📝 غياب بعذر", stats[3], "4285F4"),
+            ("⏳ لم يباشر", stats[4], "FFA500"),
+            ("🏭 تطبيق ميداني", stats[5], "909090"),
+            ("👨‍🎓 يوم طالب", stats[6], "A9A9A9"),
+            ("🌙 مسائية/عن بعد", stats[7], "A0A0A0"),
+            ("💔 حالة وفاة", stats[8], "7E57C2"),
+            ("🏥 منوم", stats[9], "26A69A")
+        ]
 
-            # تنسيق الجدول
-            for row in table.rows:
-                for cell in row.cells:
-                    cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                    for paragraph in cell.paragraphs:
-                        for run in paragraph.runs:
-                            run.font.rtl = True
-                            run.font.size = Pt(12)
+        # جدول الإحصائيات
+        stats_table = doc.add_table(rows=5, cols=4)
+        stats_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        
+        # ملء الإحصائيات
+        stat_idx = 0
+        for row in stats_table.rows:
+            for col_idx in range(0, 4, 2):
+                if stat_idx < len(stats_data):
+                    stat_name, stat_value, color = stats_data[stat_idx]
+                    
+                    # خلية الاسم
+                    name_cell = row.cells[col_idx + 1]
+                    name_cell.text = stat_name
+                    name_para = name_cell.paragraphs[0]
+                    name_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    name_run = name_para.runs[0] if name_para.runs else name_para.add_run(stat_name)
+                    name_run.font.size = Pt(18)
+                    name_run.font.bold = True
+                    name_run.font.name = 'Arial'
+                    
+                    # خلية القيمة
+                    value_cell = row.cells[col_idx]
+                    value_cell.text = str(stat_value)
+                    value_para = value_cell.paragraphs[0]
+                    value_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    value_run = value_para.runs[0] if value_para.runs else value_para.add_run(str(stat_value))
+                    value_run.font.size = Pt(24)
+                    value_run.font.bold = True
+                    value_run.font.name = 'Arial'
+                    
+                    stat_idx += 1
+            
+            row.height = Inches(0.8)
 
-            # تطبيق لون خلفية على الخلايا في العمود الثاني
-            for i, row in enumerate(table.rows):
-                if len(row.cells[1].paragraphs) > 0 and len(row.cells[1].paragraphs[0].runs) > 0:
-                    row.cells[1].paragraphs[0].runs[0].font.bold = True
-                if i % 2 == 0:
-                    for cell in row.cells:
-                        try:
-                            shading_elm = parse_xml(r'<w:shd {} w:fill="F5F5F5"/>'.format(nsdecls('w')))
-                            cell._element.get_or_add_tcPr().append(shading_elm)
-                        except:
-                            pass
+        # إجمالي الأيام
+        total_para = doc.add_paragraph()
+        total_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        total_run = total_para.add_run(f'إجمالي الأيام المسجلة: {stats[10]} يوم')
+        total_run.font.size = Pt(22)
+        total_run.font.bold = True
+        total_run.font.name = 'Arial'
+        total_run.font.color.rgb = RGBColor(0, 0, 255)
 
-            # ============= القسم الثاني: سجلات الحضور والغياب =============
-            doc.add_page_break()
+        # ============= تفاصيل سجلات الحضور =============
+        doc.add_page_break()
 
-            # عنوان قسم الحضور
-            attendance_title = doc.add_heading('سجلات الحضور والغياب', level=1)
-            attendance_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            for run in attendance_title.runs:
-                run.font.rtl = True
-                run.font.bold = True
+        # عنوان القسم
+        details_title = doc.add_paragraph()
+        details_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        dt_run = details_title.add_run('【 تفاصيل سجلات الحضور والغياب 】')
+        dt_run.font.size = Pt(28)
+        dt_run.font.bold = True
+        dt_run.font.name = 'Arial'
+        dt_run.font.color.rgb = RGBColor(255, 0, 0)
 
-            # تصنيف سجلات الحضور والغياب
-            absence_records = []
-            late_records = []
-            excused_records = []
-            not_started_records = []
-            death_case_records = []
-            hospital_records = []
-            present_records = []
-            field_application_records = []
-            student_day_records = []
-            evening_remote_records = []
+        # تصنيف السجلات
+        status_categories = {
+            'حاضر': ('✅', '34A853'),
+            'غائب': ('❌', 'EA4335'),
+            'متأخر': ('⏰', 'FBBC05'),
+            'غائب بعذر': ('📝', '4285F4'),
+            'لم يباشر': ('⏳', 'FFA500'),
+            'تطبيق ميداني': ('🏭', '909090'),
+            'يوم طالب': ('👨‍🎓', 'A9A9A9'),
+            'مسائية / عن بعد': ('🌙', 'A0A0A0'),
+            'حالة وفاة': ('💔', '7E57C2'),
+            'منوم': ('🏥', '26A69A')
+        }
 
-            attendance_records = sorted(attendance_records, key=lambda x: x[6])  # ترتيب حسب التاريخ
+        # ترتيب السجلات حسب التاريخ
+        records_by_status = {status: [] for status in status_categories}
+        for record in sorted(attendance_records, key=lambda x: x[6]):
+            status = record[7]
+            if status in records_by_status:
+                records_by_status[status].append(record)
 
-            for record in attendance_records:
-                status = record[7]  # Status column
-                if status == "غائب":
-                    absence_records.append(record)
-                elif status == "متأخر":
-                    late_records.append(record)
-                elif status == "غائب بعذر":
-                    excused_records.append(record)
-                elif status == "لم يباشر":
-                    not_started_records.append(record)
-                elif status == "حالة وفاة":
-                    death_case_records.append(record)
-                elif status == "منوم":
-                    hospital_records.append(record)
-                elif status == "حاضر":
-                    present_records.append(record)
-                elif status == "تطبيق ميداني":
-                    field_application_records.append(record)
-                elif status == "يوم طالب":
-                    student_day_records.append(record)
-                elif status == "مسائية / عن بعد":
-                    evening_remote_records.append(record)
+        # إنشاء جدول لكل حالة
+        for status, records in records_by_status.items():
+            if records:
+                doc.add_paragraph()
+                
+                # عنوان الحالة
+                icon, color = status_categories[status]
+                status_heading = doc.add_paragraph()
+                status_heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                sh_run = status_heading.add_run(f'{icon} {status} - عدد الأيام: {len(records)}')
+                sh_run.font.size = Pt(22)
+                sh_run.font.bold = True
+                sh_run.font.name = 'Arial'
 
-            # إضافة ملخص إحصائي
-            summary_title = doc.add_paragraph()
-            summary_title.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            summary_run = summary_title.add_run('ملخص إحصائي للحضور والغياب')
-            summary_run.bold = True
-            summary_run.font.size = Pt(14)
-            summary_run.font.rtl = True
+                # الجدول
+                has_reason = status in ['غائب بعذر', 'حالة وفاة', 'منوم']
+                cols = 6 if has_reason else 5
+                detail_table = doc.add_table(rows=1, cols=cols)
+                detail_table.style = 'Table Grid'
+                detail_table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
-            # إضافة الإحصائيات
-            stats_to_include = []
-            if len(absence_records) > 0:
-                stats_to_include.append(("إجمالي أيام الغياب", len(absence_records)))
-            if len(late_records) > 0:
-                stats_to_include.append(("إجمالي أيام التأخير", len(late_records)))
-            if len(excused_records) > 0:
-                stats_to_include.append(("إجمالي أيام الغياب بعذر", len(excused_records)))
-            if len(not_started_records) > 0:
-                stats_to_include.append(("إجمالي أيام لم يباشر", len(not_started_records)))
-            if len(present_records) > 0:
-                stats_to_include.append(("إجمالي أيام الحضور", len(present_records)))
-
-            if stats_to_include:
-                summary_table = doc.add_table(rows=len(stats_to_include), cols=2)
-                summary_table.style = 'Table Grid'
-
-                for i, (title, count) in enumerate(stats_to_include):
-                    row = summary_table.rows[i].cells
-                    row[0].text = str(count)
-                    row[1].text = title
-
-                    for cell in row:
-                        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                        for paragraph in cell.paragraphs:
-                            for run in paragraph.runs:
-                                run.font.rtl = True
-                                run.font.size = Pt(12)
-
-                    if len(row[1].paragraphs) > 0 and len(row[1].paragraphs[0].runs) > 0:
-                        row[1].paragraphs[0].runs[0].font.bold = True
-
-                summary_table.autofit = False
-                try:
-                    summary_table.columns[0].width = Inches(1.5)
-                    summary_table.columns[1].width = Inches(2)
-                except:
-                    pass
-
-            # دالة مساعدة لإنشاء جدول لعرض الحالات
-            def create_status_table(title, records, has_reason=False):
-                if not records:
-                    return False
-
-                status_title = doc.add_paragraph()
-                status_title.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                status_run = status_title.add_run(title)
-                status_run.bold = True
-                status_run.font.size = Pt(14)
-                status_run.font.rtl = True
-
-                cols = 3 if has_reason else 2
-
-                status_table = doc.add_table(rows=1, cols=cols)
-                status_table.style = 'Table Grid'
-
-                header_cells = status_table.rows[0].cells
-                header_cells[0].text = 'التاريخ'
-                header_cells[1].text = 'الحالة'
+                # رؤوس الأعمدة
+                headers = ['م', 'التاريخ', 'اليوم', 'الوقت']
                 if has_reason:
-                    header_cells[2].text = 'السبب'
+                    headers.append('السبب/التفاصيل')
+                headers.append('المسجل')
 
-                for cell in header_cells:
-                    cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    if len(cell.paragraphs[0].runs) > 0:
-                        cell.paragraphs[0].runs[0].font.bold = True
-                        cell.paragraphs[0].runs[0].font.rtl = True
-                    try:
-                        shading_elm = parse_xml(r'<w:shd {} w:fill="DDDDDD"/>'.format(nsdecls('w')))
-                        cell._element.get_or_add_tcPr().append(shading_elm)
-                    except:
-                        pass
-
-                for record in records:
-                    date = record[6]
-                    status_text = record[7]
-                    row_cells = status_table.add_row().cells
-                    row_cells[0].text = date
-                    row_cells[1].text = status_text
-
-                    if has_reason and len(record) > 10:
-                        reason = record[10] if record[10] else "لم يذكر سبب"
-                        row_cells[2].text = reason
-
-                    for cell in row_cells:
-                        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                        for paragraph in cell.paragraphs:
-                            for run in paragraph.runs:
-                                run.font.rtl = True
-                                run.font.size = Pt(11)
-
-                doc.add_paragraph()
-                return True
-
-            # إنشاء جداول للحالات المطلوبة
-            if present_records:
-                create_status_table('سجلات الحضور', present_records)
-            if absence_records:
-                create_status_table('سجلات الغياب', absence_records)
-            if excused_records:
-                create_status_table('سجلات الغياب بعذر', excused_records, has_reason=True)
-            if late_records:
-                create_status_table('سجلات التأخير', late_records)
-
-            # ============= القسم الثالث: المخالفات والإجراءات التأديبية =============
-            # الحصول على سجلات المخالفات
-            cursor = self.conn.cursor()
-            cursor.execute("""
-                SELECT id, violation_date, violation_type, description, 
-                       action_taken, action_date, recorded_by, notes,
-                       behavior_deduction, custom_action, custom_violation_type
-                FROM student_violations
-                WHERE national_id=?
-                ORDER BY violation_date DESC
-            """, (nid,))
-            violations_records = cursor.fetchall()
-
-            if violations_records:
-                doc.add_page_break()
-
-                # عنوان قسم المخالفات
-                violations_section_title = doc.add_heading('المخالفات والإجراءات التأديبية', level=1)
-                violations_section_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for run in violations_section_title.runs:
-                    run.font.rtl = True
+                header_row = detail_table.rows[0]
+                for i, header in enumerate(reversed(headers)):
+                    cell = header_row.cells[i]
+                    cell.text = header
+                    para = cell.paragraphs[0]
+                    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    run = para.runs[0] if para.runs else para.add_run(header)
                     run.font.bold = True
+                    run.font.size = Pt(16)
+                    run.font.name = 'Arial'
+                    run.font.color.rgb = RGBColor(255, 255, 255)
+                    
+                    # تلوين الرأس
+                    shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{color}"/>')
+                    cell._element.get_or_add_tcPr().append(shading)
 
-                # إحصائيات المخالفات
-                total_violations = len(violations_records)
-                total_behavior_deduction = sum(rec[8] or 0 for rec in violations_records)
+                # البيانات
+                for idx, record in enumerate(records):
+                    row = detail_table.add_row()
+                    cells = row.cells
+                    
+                    # رقم التسلسل
+                    cells[-1].text = str(idx + 1)
+                    
+                    # التاريخ
+                    date_obj = datetime.datetime.strptime(record[6], "%Y-%m-%d")
+                    cells[-2].text = date_obj.strftime("%Y/%m/%d")
+                    
+                    # اليوم
+                    weekdays = ['الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد']
+                    cells[-3].text = weekdays[date_obj.weekday()]
+                    
+                    # الوقت
+                    cells[-4].text = record[5]
+                    
+                    # السبب (إن وجد)
+                    if has_reason:
+                        cells[1].text = record[10] if record[10] else "غير محدد"
+                    
+                    # المسجل
+                    cells[0].text = record[9]
 
-                violations_stats = doc.add_paragraph()
-                violations_stats.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                stats_text = f"إجمالي المخالفات: {total_violations} مخالفة\n"
-                stats_text += f"إجمالي الخصم من درجة السلوك: {total_behavior_deduction} درجة"
-                violations_stats.add_run(stats_text)
-                for run in violations_stats.runs:
-                    run.font.rtl = True
-                    run.font.bold = True
-                    run.font.size = Pt(12)
-
-                doc.add_paragraph()
-
-                # جدول ملخص المخالفات
-                violations_table = doc.add_table(rows=1, cols=6)
-                violations_table.style = 'Table Grid'
-
-                # رؤوس الجدول
-                v_header_cells = violations_table.rows[0].cells
-                v_header_cells[5].text = "تاريخ المخالفة"
-                v_header_cells[4].text = "نوع المخالفة"
-                v_header_cells[3].text = "الإجراء المتخذ"
-                v_header_cells[2].text = "تاريخ الإجراء"
-                v_header_cells[1].text = "الخصم"
-                v_header_cells[0].text = "وصف المخالفة"
-
-                for cell in v_header_cells:
-                    cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    try:
-                        shading_elm = parse_xml(r'<w:shd {} w:fill="DDDDDD"/>'.format(nsdecls('w')))
-                        cell._element.get_or_add_tcPr().append(shading_elm)
-                    except:
-                        pass
-                    for run in cell.paragraphs[0].runs:
+                    # تنسيق الخلايا
+                    for cell in cells:
+                        para = cell.paragraphs[0]
+                        para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        if para.runs:
+                            run = para.runs[0]
+                        else:
+                            run = para.add_run(cell.text)
+                        run.font.size = Pt(14)
                         run.font.bold = True
-                        run.font.rtl = True
+                        run.font.name = 'Arial'
+                    
+                    row.height = Inches(0.5)
 
-                # إضافة بيانات المخالفات
-                for violation in violations_records:
-                    row_cells = violations_table.add_row().cells
+        # ============= المخالفات والإجراءات التأديبية =============
+        cursor.execute("""
+            SELECT id, violation_date, violation_type, description, 
+                   action_taken, action_date, recorded_by, notes,
+                   behavior_deduction, custom_action, custom_violation_type
+            FROM student_violations
+            WHERE national_id=?
+            ORDER BY violation_date DESC
+        """, (nid,))
+        violations_records = cursor.fetchall()
 
-                    # استخدام النوع المخصص إذا كان النوع "أخرى"
-                    violation_type = violation[10] if violation[2] == "أخرى" and violation[10] else violation[2]
-                    # استخدام الإجراء المخصص إذا كان الإجراء "أخرى"
-                    action_taken = violation[9] if violation[4] == "أخرى" and violation[9] else violation[4]
-
-                    row_cells[5].text = violation[1]  # تاريخ المخالفة
-                    row_cells[4].text = violation_type  # نوع المخالفة
-                    row_cells[3].text = action_taken  # الإجراء المتخذ
-                    row_cells[2].text = violation[5]  # تاريخ الإجراء
-                    row_cells[1].text = f"{violation[8] or 0} درجة"  # الخصم
-                    row_cells[0].text = violation[3] or ""  # وصف المخالفة
-
-                    for i, cell in enumerate(row_cells):
-                        alignment = WD_ALIGN_PARAGRAPH.CENTER
-                        if i == 0:  # خلية الوصف محاذاة يمين
-                            alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                        cell.paragraphs[0].alignment = alignment
-                        for run in cell.paragraphs[0].runs:
-                            run.font.rtl = True
-
-                # إضافة تفاصيل كل مخالفة
-                for i, violation in enumerate(violations_records):
-                    doc.add_paragraph()
-
-                    # عنوان المخالفة
-                    v_title = doc.add_paragraph()
-                    v_title.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                    v_title_run = v_title.add_run(f'تفاصيل المخالفة رقم {i + 1}')
-                    v_title_run.bold = True
-                    v_title_run.font.size = Pt(12)
-                    v_title_run.font.rtl = True
-
-                    # تفاصيل المخالفة
-                    details_table = doc.add_table(rows=8, cols=2)
-                    details_table.style = 'Table Grid'
-
-                    # استخدام النوع والإجراء المخصص
-                    violation_type = violation[10] if violation[2] == "أخرى" and violation[10] else violation[2]
-                    action_taken = violation[9] if violation[4] == "أخرى" and violation[9] else violation[4]
-
-                    details_table.cell(0, 1).text = "نوع المخالفة"
-                    details_table.cell(0, 0).text = violation_type
-
-                    details_table.cell(1, 1).text = "تاريخ المخالفة"
-                    details_table.cell(1, 0).text = violation[1]
-
-                    details_table.cell(2, 1).text = "وصف المخالفة"
-                    details_table.cell(2, 0).text = violation[3] or "لا يوجد وصف"
-
-                    details_table.cell(3, 1).text = "الإجراء المتخذ"
-                    details_table.cell(3, 0).text = action_taken
-
-                    details_table.cell(4, 1).text = "تاريخ الإجراء"
-                    details_table.cell(4, 0).text = violation[5]
-
-                    details_table.cell(5, 1).text = "درجات الخصم من السلوك"
-                    details_table.cell(5, 0).text = f"{violation[8] or 0} درجة"
-
-                    details_table.cell(6, 1).text = "المسجل"
-                    details_table.cell(6, 0).text = violation[6]
-
-                    details_table.cell(7, 1).text = "ملاحظات"
-                    details_table.cell(7, 0).text = violation[7] if violation[7] else "لا توجد ملاحظات"
-
-                    # تنسيق الجدول
-                    for row in details_table.rows:
-                        row.cells[1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-                        for run in row.cells[1].paragraphs[0].runs:
-                            run.font.bold = True
-                            run.font.rtl = True
-                        try:
-                            shading_elm = parse_xml(r'<w:shd {} w:fill="E9E9E9"/>'.format(nsdecls('w')))
-                            row.cells[1]._element.get_or_add_tcPr().append(shading_elm)
-                        except:
-                            pass
-                        row.cells[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                        for run in row.cells[0].paragraphs[0].runs:
-                            run.font.rtl = True
-
-            # ============= القسم الأخير: التوقيعات والتاريخ =============
+        if violations_records:
             doc.add_page_break()
 
-            # إضافة خط أفقي
-            border_paragraph = doc.add_paragraph()
-            border_paragraph.paragraph_format.border_bottom = True
+            # عنوان القسم
+            v_title = doc.add_paragraph()
+            v_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            vt_run = v_title.add_run('【 المخالفات والإجراءات التأديبية 】')
+            vt_run.font.size = Pt(28)
+            vt_run.font.bold = True
+            vt_run.font.name = 'Arial'
+            vt_run.font.color.rgb = RGBColor(255, 0, 0)
 
-            # إضافة نص التقرير مولد من طرف
-            footer_paragraph = doc.add_paragraph()
-            footer_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            footer_run = footer_paragraph.add_run("تقرير مولد من طرف نظام إدارة الحضور والغياب")
-            footer_run.font.size = Pt(11)
-            footer_run.font.rtl = True
+            # الإحصائيات
+            total_violations = len(violations_records)
+            total_deduction = sum(rec[8] or 0 for rec in violations_records)
 
-            # إضافة الفراغ
-            for _ in range(5):
-                doc.add_paragraph()
-
-            # إضافة اسم المستخدم الكامل
-            user_name_paragraph = doc.add_paragraph()
-            user_name_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            user_name_run = user_name_paragraph.add_run(f"اسم المستخدم: {self.current_user['full_name']}")
-            user_name_run.font.size = Pt(12)
-            user_name_run.font.rtl = True
-            user_name_run.font.bold = True
-
-            # إضافة خط التوقيع
-            signature_paragraph = doc.add_paragraph()
-            signature_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            signature_run = signature_paragraph.add_run("التوقيع: ..................................")
-            signature_run.font.size = Pt(12)
-            signature_run.font.rtl = True
-
-            # إضافة التاريخ والوقت الحالي
-            now = datetime.datetime.now()
-            date_time_str = now.strftime("%Y-%m-%d %H:%M:%S")
-
-            date_time_paragraph = doc.add_paragraph()
-            date_time_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            date_time_run = date_time_paragraph.add_run(f"تاريخ ووقت الطباعة: {date_time_str}")
-            date_time_run.font.size = Pt(10)
-            date_time_run.font.rtl = True
-
-            # حفظ المستند
-            export_file = filedialog.asksaveasfilename(
-                defaultextension=".docx",
-                filetypes=[("Word documents", "*.docx")],
-                initialfile=f"تقرير_شامل_{name}_{nid}.docx"
+            stats_para = doc.add_paragraph()
+            stats_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            sp_run = stats_para.add_run(
+                f'📊 إجمالي المخالفات: {total_violations} | '
+                f'إجمالي الخصم: {total_deduction} درجة'
             )
+            sp_run.font.size = Pt(20)
+            sp_run.font.bold = True
+            sp_run.font.name = 'Arial'
 
-            if export_file:
-                doc.save(export_file)
-                messagebox.showinfo("نجاح", f"تم تصدير التقرير الشامل بنجاح إلى:\n{export_file}")
+            doc.add_paragraph()
 
-                # محاولة فتح الملف
-                try:
-                    os.startfile(export_file)
-                except:
-                    pass
+            # جدول المخالفات
+            v_table = doc.add_table(rows=1, cols=7)
+            v_table.style = 'Table Grid'
+            v_table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
-        except Exception as e:
-            messagebox.showerror("خطأ", f"حدث خطأ أثناء تصدير البيانات: {str(e)}")
-
-    def export_course_completion(self):
-        """وظيفة تصدير مستند تكميل الدورات بتنسيق Word مع ملخص للدورات في الصفحة الأولى مع إضافة تواريخ بداية ونهاية الدورة وفئة الدورة"""
-        if not self.current_user["permissions"]["can_export_data"]:
-            messagebox.showwarning("تنبيه", "ليس لديك صلاحية تصدير البيانات")
-            return
-
-        try:
-            # التأكد من وجود مكتبة python-docx
-            from docx import Document
-            from docx.shared import Pt, Inches, RGBColor
-            from docx.enum.text import WD_ALIGN_PARAGRAPH
-            from docx.enum.section import WD_ORIENTATION
-            from docx.oxml.ns import nsdecls
-            from docx.oxml import parse_xml
-
-            # الحصول على تاريخ اليوم المحدد
-            selected_date = self.log_date_entry.get_date()
-            selected_date_str = selected_date.strftime("%Y-%m-%d")
-            # تنسيق التاريخ بشكل أفضل للعرض (يوم/شهر/سنة)
-            arabic_date = selected_date.strftime("%d/%m/%Y")
-
-            # تحديد يوم الأسبوع بالعربية
-            weekday = selected_date.weekday()
-            arabic_weekdays = ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"]
-            arabic_weekday = arabic_weekdays[weekday]
-
-            # استعلام إجمالي عدد المتدربين في النظام (غير المستبعدين)
-            cursor = self.conn.cursor()
-            cursor.execute("""
-                SELECT COUNT(*)
-                FROM trainees
-                WHERE is_excluded=0
-            """)
-            total_students_count = cursor.fetchone()[0]
-
-            # الحصول على عدد المتدربين غير المسجلين بعد
-            cursor.execute("""
-                SELECT COUNT(*)
-                FROM trainees t
-                WHERE t.is_excluded=0 AND NOT EXISTS (
-                    SELECT 1 FROM attendance a
-                    WHERE a.national_id = t.national_id AND a.date = ?
-                )
-            """, (selected_date_str,))
-
-            unrecorded_count = cursor.fetchone()[0]
-
-            # التحقق من عدم وجود متدربين غير مسجلين
-            if unrecorded_count > 0:
-                messagebox.showwarning("تنبيه",
-                                       f"لا يمكن تصدير التكميل، هناك {unrecorded_count} متدرب لم يتم تسجيل حضورهم/غيابهم بعد.")
-                return
-
-            # استعلام بيانات المتدربين الغائبين والذين لم يباشروا والغائبين بعذر وجميع الحالات الأخرى
-            cursor.execute("""
-                SELECT a.national_id, a.name, a.rank, a.course, a.status, a.excuse_reason
-                FROM attendance a
-                JOIN trainees t ON a.national_id = t.national_id
-                WHERE a.date=? AND t.is_excluded=0 AND a.status IN ('غائب', 'لم يباشر', 'غائب بعذر', 'متأخر', 'تطبيق ميداني', 'يوم طالب', 'مسائية / عن بعد', 'حالة وفاة', 'منوم')
-                ORDER BY a.course, a.name
-            """, (selected_date_str,))
-            all_attendance_data = cursor.fetchall()
-
-            if not all_attendance_data and total_students_count == 0:
-                messagebox.showinfo("ملاحظة", "لا توجد بيانات غياب أو متدربين في النظام لهذا اليوم.")
-                return
-
-            # الحصول على إحصائيات الدورات مع فئة الدورة وتاريخ النهاية
-            cursor.execute("""
-                SELECT 
-                    t.course,
-                    COUNT(DISTINCT t.national_id) as total_course_students,
-                    COUNT(DISTINCT CASE WHEN a.status = 'حاضر' THEN a.national_id END) as present_count,
-                    COUNT(DISTINCT CASE WHEN a.status = 'غائب' THEN a.national_id END) as absent_count,
-                    COUNT(DISTINCT CASE WHEN a.status = 'غائب بعذر' THEN a.national_id END) as excused_count,
-                    COUNT(DISTINCT CASE WHEN a.status = 'متأخر' THEN a.national_id END) as late_count,
-                    COUNT(DISTINCT CASE WHEN a.status = 'لم يباشر' THEN a.national_id END) as not_started_count,
-                    COUNT(DISTINCT CASE WHEN a.status = 'تطبيق ميداني' THEN a.national_id END) as field_app_count,
-                    COUNT(DISTINCT CASE WHEN a.status = 'يوم طالب' THEN a.national_id END) as student_day_count,
-                    COUNT(DISTINCT CASE WHEN a.status = 'مسائية / عن بعد' THEN a.national_id END) as evening_remote_count,
-                    COUNT(DISTINCT CASE WHEN a.status = 'حالة وفاة' THEN a.national_id END) as death_case_count,
-                    COUNT(DISTINCT CASE WHEN a.status = 'منوم' THEN a.national_id END) as hospital_count,
-                    COUNT(DISTINCT CASE WHEN a.status IS NOT NULL THEN a.national_id END) as recorded_count,
-                    COALESCE(ci.course_category, 'مشتركة') as category,
-                    ci.end_date_system
-                FROM 
-                    trainees t
-                LEFT JOIN 
-                    attendance a ON t.national_id = a.national_id AND a.date = ?
-                LEFT JOIN 
-                    course_info ci ON t.course = ci.course_name
-                WHERE 
-                    t.is_excluded = 0
-                GROUP BY 
-                    t.course
-                ORDER BY 
-                    CASE 
-                        WHEN ci.end_date_system IS NULL THEN 1
-                        ELSE 0
-                    END,
-                    ci.end_date_system DESC,
-                    t.course
-            """, (selected_date_str,))
-
-            courses_stats = cursor.fetchall()
-
-            if not courses_stats:
-                messagebox.showinfo("ملاحظة", "لا توجد دورات مسجلة في النظام.")
-                return
-
-            # الحصول على المتدربين الذين لديهم غيابات أكثر من يومين حتى التاريخ المحدد
-            cursor.execute("""
-                SELECT t.national_id, t.name, t.rank, t.course, COUNT(*) as absence_count
-                FROM trainees t
-                JOIN attendance a ON t.national_id = a.national_id
-                WHERE a.status = 'غائب' AND t.is_excluded = 0 AND a.date <= ?
-                GROUP BY t.national_id, t.name, t.rank, t.course
-                HAVING COUNT(*) > 2
-                ORDER BY t.course, absence_count DESC, t.name
-            """, (selected_date_str,))
-            multiple_absences_data = cursor.fetchall()
-
-            # الحصول على بيانات المستبعدين من جميع الدورات
-            # تعديل: استخدام arabic_date بدلاً من today_date
-            cursor.execute("""
-                SELECT name, rank, national_id, course, exclusion_reason, excluded_date
-                FROM trainees
-                WHERE is_excluded = 1
-                ORDER BY course, excluded_date DESC, name
-            """)
-            excluded_students_data = cursor.fetchall()
-
-            # الحصول على بيانات المتدربين الذين تم استقبالهم
-            cursor.execute("""
-                SELECT a.national_id, a.name, a.rank, a.course, a.receiver_name
-                FROM attendance a
-                JOIN trainees t ON a.national_id = t.national_id
-                WHERE a.date = ? 
-                AND a.receiver_name IS NOT NULL 
-                AND a.receiver_name != ''
-                AND a.status IN ('حاضر', 'متأخر')
-                AND t.is_excluded = 0
-                ORDER BY a.course, a.name
-            """, (selected_date_str,))
-            received_students_data = cursor.fetchall()
-
-            # تصنيف البيانات حسب الحالة (مرتبة حسب الدورة)
-            absent_data = sorted([student for student in all_attendance_data if student[4] == 'غائب'],
-                                 key=lambda x: (x[3], x[1]))  # ترتيب حسب الدورة ثم الاسم
-            not_started_data = sorted([student for student in all_attendance_data if student[4] == 'لم يباشر'],
-                                      key=lambda x: (x[3], x[1]))
-            excused_data = sorted([student for student in all_attendance_data if student[4] == 'غائب بعذر'],
-                                  key=lambda x: (x[3], x[1]))
-            late_data = sorted([student for student in all_attendance_data if student[4] == 'متأخر'],
-                               key=lambda x: (x[3], x[1]))
-            field_app_data = sorted([student for student in all_attendance_data if student[4] == 'تطبيق ميداني'],
-                                    key=lambda x: (x[3], x[1]))
-            student_day_data = sorted([student for student in all_attendance_data if student[4] == 'يوم طالب'],
-                                      key=lambda x: (x[3], x[1]))
-            evening_remote_data = sorted(
-                [student for student in all_attendance_data if student[4] == 'مسائية / عن بعد'],
-                key=lambda x: (x[3], x[1]))
-            death_case_data = sorted([student for student in all_attendance_data if student[4] == 'حالة وفاة'],
-                                     key=lambda x: (x[3], x[1]))
-            hospital_data = sorted([student for student in all_attendance_data if student[4] == 'منوم'],
-                                   key=lambda x: (x[3], x[1]))
-
-            # استعلام إحصائيات الحضور الإجمالية لهذا اليوم
-            cursor.execute("""
-                SELECT 
-                    COUNT(CASE WHEN a.status = 'حاضر' THEN 1 END) as present_count,
-                    COUNT(CASE WHEN a.status = 'غائب' THEN 1 END) as absent_count,
-                    COUNT(CASE WHEN a.status = 'غائب بعذر' THEN 1 END) as excused_count,
-                    COUNT(CASE WHEN a.status = 'متأخر' THEN 1 END) as late_count,
-                    COUNT(CASE WHEN a.status = 'لم يباشر' THEN 1 END) as not_started_count,
-                    COUNT(CASE WHEN a.status = 'تطبيق ميداني' THEN 1 END) as field_app_count,
-                    COUNT(CASE WHEN a.status = 'يوم طالب' THEN 1 END) as student_day_count,
-                    COUNT(CASE WHEN a.status = 'مسائية / عن بعد' THEN 1 END) as evening_remote_count,
-                    COUNT(CASE WHEN a.status = 'حالة وفاة' THEN 1 END) as death_case_count,
-                    COUNT(CASE WHEN a.status = 'منوم' THEN 1 END) as hospital_count,
-                    COUNT(*) as total_recorded_count
-                FROM attendance a
-                JOIN trainees t ON a.national_id = t.national_id
-                WHERE a.date=? AND t.is_excluded=0
-            """, (selected_date_str,))
-            stats = cursor.fetchone()
-
-            # إذا لم تتوفر إحصائيات
-            if not stats:
-                stats = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-
-            # أعداد الحضور والغياب
-            present_count = stats[0] or 0
-            absent_count = stats[1] or 0
-            excused_count = stats[2] or 0
-            late_count = stats[3] or 0
-            not_started_count = stats[4] or 0
-            field_app_count = stats[5] or 0
-            student_day_count = stats[6] or 0
-            evening_remote_count = stats[7] or 0
-            death_case_count = stats[8] or 0
-            hospital_count = stats[9] or 0
-            total_recorded_count = stats[10] or 0
-
-            # إنشاء مستند Word جديد
-            doc = Document()
-
-            # إعداد صفحة المستند
-            section = doc.sections[0]
-            section.page_width = Inches(11.69)  # A4 width in landscape
-            section.page_height = Inches(8.27)  # A4 height in landscape
-            section.orientation = WD_ORIENTATION.LANDSCAPE
-            section.left_margin = Inches(0.5)
-            section.right_margin = Inches(0.5)
-            section.top_margin = Inches(0.7)
-            section.bottom_margin = Inches(0.7)
-
-            # ============== الصفحة الأولى: ملخص الدورات ==============
-            # إضافة العنوان المعدل
-            title = doc.add_heading(
-                f'التكميل اليومي لدورات التخصصية المنعقدة بمدينة تدريب الامن العام بالمنطقة الشرقية ليوم {arabic_weekday} بتاريخ {arabic_date}',
-                level=0)
-            title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            for run in title.runs:
-                run.font.rtl = True
+            # رؤوس الجدول
+            v_headers = ['م', 'التاريخ', 'نوع المخالفة', 'الوصف', 'الإجراء', 'تاريخ الإجراء', 'الخصم']
+            v_header_row = v_table.rows[0]
+            
+            for i, header in enumerate(reversed(v_headers)):
+                cell = v_header_row.cells[i]
+                cell.text = header
+                para = cell.paragraphs[0]
+                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run = para.runs[0] if para.runs else para.add_run(header)
                 run.font.bold = True
                 run.font.size = Pt(16)
+                run.font.name = 'Arial'
+                run.font.color.rgb = RGBColor(255, 255, 255)
+                
+                shading = parse_xml(r'<w:shd {} w:fill="8B0000"/>'.format(nsdecls('w')))
+                cell._element.get_or_add_tcPr().append(shading)
 
-            # إضافة خط أفقي فاصل
-            border_para = doc.add_paragraph()
-            border_para.paragraph_format.border_bottom = True
+            # البيانات
+            for idx, violation in enumerate(violations_records):
+                row = v_table.add_row()
+                cells = row.cells
+                
+                cells[6].text = str(idx + 1)
+                cells[5].text = violation[1]
+                
+                # نوع المخالفة
+                v_type = violation[10] if violation[2] == "أخرى" and violation[10] else violation[2]
+                cells[4].text = v_type
+                
+                cells[3].text = violation[3] if violation[3] else "---"
+                
+                # الإجراء
+                action = violation[9] if violation[4] == "أخرى" and violation[9] else violation[4]
+                cells[2].text = action
+                
+                cells[1].text = violation[5]
+                cells[0].text = f"{violation[8] or 0} درجة"
 
-            # إضافة فقرة اسم الجهة
-            dept_para = doc.add_paragraph()
-            dept_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            dept_run = dept_para.add_run("قسم شؤون المدربين")
-            dept_run.font.rtl = True
-            dept_run.font.bold = True
-            dept_run.font.size = Pt(14)
-
-            # إضافة فقرة فاصلة
-            doc.add_paragraph()
-
-            # حساب عدد الأعمدة المطلوبة بناءً على الحالات الموجودة
-            show_field_app = any(course[7] > 0 for course in courses_stats)
-            show_student_day = any(course[8] > 0 for course in courses_stats)
-            show_evening_remote = any(course[9] > 0 for course in courses_stats)
-            show_death_case = any(course[10] > 0 for course in courses_stats)
-            show_hospital = any(course[11] > 0 for course in courses_stats)
-
-            # 10 أعمدة ثابتة مع إضافة عمود فئة الدورة
-            cols_count = 10  # العدد، الدورة، فئة الدورة، بداية، نهاية، القوة، لم يباشر، غياب، تأخير، غياب بعذر
-
-            # إضافة أعمدة إضافية للحالات الموجودة فقط
-            if show_field_app:
-                cols_count += 1
-            if show_student_day:
-                cols_count += 1
-            if show_evening_remote:
-                cols_count += 1
-            if show_death_case:
-                cols_count += 1
-            if show_hospital:
-                cols_count += 1
-
-            # إضافة عمود العدد الفعلي دائماً
-            cols_count += 1
-
-            # إنشاء جدول ملخص الدورات في الصفحة الأولى
-            courses_table = doc.add_table(rows=1, cols=cols_count)
-            courses_table.style = 'Table Grid'
-
-            # إنشاء قائمة العناوين
-            headers = [
-                "العدد", "اسم الدورة", "فئة الدورة",
-                "تاريخ بداية الدورة", "تاريخ نهاية الدورة",
-                "القوة", "لم يباشر", "غياب", "تأخير", "غياب بعذر"
-            ]
-
-            # إضافة عناوين الحالات الموجودة فقط
-            if show_field_app:
-                headers.append("تطبيق ميداني")
-            if show_student_day:
-                headers.append("يوم طالب")
-            if show_evening_remote:
-                headers.append("مسائية / عن بعد")
-            if show_death_case:
-                headers.append("حالة وفاة")
-            if show_hospital:
-                headers.append("منوم")
-
-            # إضافة عنوان العدد الفعلي دائماً
-            headers.append("العدد الفعلي")
-
-            # عناوين جدول الدورات
-            header_cells = courses_table.rows[0].cells
-
-            for i, header in enumerate(headers):
-                # حساب الموقع المناسب للعناوين (من اليمين إلى اليسار بسبب RTL)
-                idx = len(headers) - i - 1
-                header_cells[idx].text = header
-                header_cells[idx].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-                for run in header_cells[idx].paragraphs[0].runs:
-                    run.font.bold = True
-                    run.font.rtl = True
-                    run.font.size = Pt(11)
-
-                # تطبيق تظليل للرأس
-                try:
-                    shading_elm = parse_xml(r'<w:shd {} w:fill="DDDDDD"/>'.format(nsdecls('w')))
-                    header_cells[idx]._element.get_or_add_tcPr().append(shading_elm)
-                except:
-                    pass
-
-            # متغيرات لحساب المجاميع
-            total_strength = 0
-            total_not_started = 0
-            total_absent = 0
-            total_late = 0
-            total_excused = 0
-            total_field_app = 0
-            total_student_day = 0
-            total_evening_remote = 0
-            total_death_case = 0
-            total_hospital = 0
-            total_effective = 0
-
-            # إضافة بيانات الدورات إلى الجدول
-            for idx, course_data in enumerate(courses_stats):
-                course_name = course_data[0]
-                total_course_students = course_data[1] or 0
-                present_count = course_data[2] or 0
-                absent_count = course_data[3] or 0
-                excused_count = course_data[4] or 0
-                late_count = course_data[5] or 0
-                not_started_count = course_data[6] or 0
-                field_app_count = course_data[7] or 0
-                student_day_count = course_data[8] or 0
-                evening_remote_count = course_data[9] or 0
-                death_case_count = course_data[10] or 0
-                hospital_count = course_data[11] or 0
-                recorded_count = course_data[12] or 0
-                course_category = course_data[13] or "مشتركة"
-                end_date_system = course_data[14]
-
-                # تحديث المجاميع
-                total_strength += total_course_students
-                total_not_started += not_started_count
-                total_absent += absent_count
-                total_late += late_count
-                total_excused += excused_count
-                total_field_app += field_app_count
-                total_student_day += student_day_count
-                total_evening_remote += evening_remote_count
-                total_death_case += death_case_count
-                total_hospital += hospital_count
-
-                # الحصول على تواريخ البداية والنهاية للدورة من قاعدة البيانات
-                cursor.execute("""
-                    SELECT start_day, start_month, start_year, end_day, end_month, end_year
-                    FROM course_info
-                    WHERE course_name=?
-                """, (course_name,))
-                date_info = cursor.fetchone()
-
-                start_date_str = ""
-                end_date_str = ""
-
-                if date_info:
-                    start_day, start_month, start_year, end_day, end_month, end_year = date_info
-                    if start_day and start_month and start_year:
-                        start_date_str = f"{start_day}/{start_month}/{start_year}"
-                    if end_day and end_month and end_year:
-                        end_date_str = f"{end_day}/{end_month}/{end_year}"
-
-                # حساب العدد الفعلي (بعد خصم جميع الحالات المذكورة)
-                effective_count = present_count
-                total_effective += effective_count
-
-                row_cells = courses_table.add_row().cells
-
-                # تحضير القيم للإدخال في الجدول
-                values = [
-                    str(idx + 1),  # العدد التسلسلي للدورة
-                    course_name,  # اسم الدورة
-                    course_category,  # فئة الدورة
-                    start_date_str,  # تاريخ بداية الدورة
-                    end_date_str,  # تاريخ نهاية الدورة
-                    str(total_course_students),  # القوة
-                    str(not_started_count),  # عدد حالات "لم يباشر"
-                    str(absent_count),  # عدد حالات الغياب
-                    str(late_count),  # عدد حالات التأخير
-                    str(excused_count)  # عدد حالات الغياب بعذر
-                ]
-
-                # إضافة القيم للحالات الموجودة فقط
-                if show_field_app:
-                    values.append(str(field_app_count))
-                if show_student_day:
-                    values.append(str(student_day_count))
-                if show_evening_remote:
-                    values.append(str(evening_remote_count))
-                if show_death_case:
-                    values.append(str(death_case_count))
-                if show_hospital:
-                    values.append(str(hospital_count))
-
-                # إضافة العدد الفعلي دائماً
-                values.append(str(effective_count))
-
-                # إدخال القيم في الجدول بالترتيب من اليمين إلى اليسار
-                for i, value in enumerate(values):
-                    idx = len(values) - i - 1
-                    row_cells[idx].text = value
-
-                # تنسيق الخلايا
-                for cell in row_cells:
-                    cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    for run in cell.paragraphs[0].runs:
-                        run.font.rtl = True
-                        run.font.size = Pt(10)
-
-            # إضافة صف المجموع
-            total_row_cells = courses_table.add_row().cells
-
-            # إعداد قيم صف المجموع
-            total_values = [
-                "",  # العدد التسلسلي (فارغ)
-                "المجموع",  # اسم الدورة
-                "",  # فئة الدورة (فارغ)
-                "",  # تاريخ بداية (فارغ)
-                "",  # تاريخ نهاية (فارغ)
-                str(total_strength),  # إجمالي القوة
-                str(total_not_started),  # إجمالي لم يباشر
-                str(total_absent),  # إجمالي الغياب
-                str(total_late),  # إجمالي التأخير
-                str(total_excused)  # إجمالي الغياب بعذر
-            ]
-
-            # إضافة المجاميع للحالات الموجودة فقط
-            if show_field_app:
-                total_values.append(str(total_field_app))
-            if show_student_day:
-                total_values.append(str(total_student_day))
-            if show_evening_remote:
-                total_values.append(str(total_evening_remote))
-            if show_death_case:
-                total_values.append(str(total_death_case))
-            if show_hospital:
-                total_values.append(str(total_hospital))
-
-            # إضافة إجمالي العدد الفعلي
-            total_values.append(str(total_effective))
-
-            # إدخال قيم المجموع في الجدول
-            for i, value in enumerate(total_values):
-                idx = len(total_values) - i - 1
-                total_row_cells[idx].text = value
-
-            # تنسيق صف المجموع بشكل مميز
-            for cell in total_row_cells:
-                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for run in cell.paragraphs[0].runs:
-                    run.font.rtl = True
-                    run.font.size = Pt(11)
-                    run.font.bold = True
-
-                # تطبيق تظليل لصف المجموع
-                try:
-                    shading_elm = parse_xml(r'<w:shd {} w:fill="E0E0E0"/>'.format(nsdecls('w')))
-                    cell._element.get_or_add_tcPr().append(shading_elm)
-                except:
-                    pass
-
-            # ============== صفحة جديدة للتفاصيل ==============
-            doc.add_page_break()
-
-            # دالة مساعدة لإضافة جدول المتدربين (معدلة لإضافة اليوم والتاريخ في العنوان)
-            def add_students_table(title, students_data, has_reason=False, is_excluded=False,
-                                   include_date_in_title=True, has_course_column=False):
-                """إضافة جدول المتدربين لحالة معينة"""
-                if not students_data:
-                    return  # تخطي إذا لم تكن هناك بيانات
-
-                # إضافة عنوان الجدول مع التاريخ
-                if include_date_in_title and not is_excluded:
-                    # إضافة اليوم والتاريخ في العنوان
-                    full_title = f"{title} ليوم {arabic_weekday} بتاريخ {arabic_date}"
-                else:
-                    full_title = title
-
-                title_para = doc.add_heading(full_title, level=2)
-                title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for run in title_para.runs:
-                    run.font.rtl = True
-                    run.font.bold = True
-                    run.font.size = Pt(14)
-
-                # إنشاء جدول المتدربين
-                if is_excluded:
-                    cols_count = 7  # للمستبعدين: العدد، الاسم، الرتبة، رقم الهوية، الدورة، سبب الاستبعاد، تاريخ الاستبعاد
-                else:
-                    cols_count = 6 if has_reason else 5  # إضافة عمود للسبب عند الحاجة
-
-                students_table = doc.add_table(rows=1, cols=cols_count)
-                students_table.style = 'Table Grid'
-
-                # تحديد عناوين الجدول
-                if is_excluded:
-                    headers = ["العدد", "الاسم", "الرتبة", "رقم الهوية", "الدورة", "سبب الاستبعاد", "تاريخ الاستبعاد"]
-                else:
-                    headers = ["العدد", "الاسم", "الرتبة", "رقم الهوية", "الدورة"]
-                    if has_reason:
-                        headers.append("السبب")  # إضافة عمود السبب إذا كان مطلوباً
-
-                header_cells = students_table.rows[0].cells
-                for i, header in enumerate(headers):
-                    idx = len(headers) - i - 1  # لترتيب العناوين من اليمين لليسار
-                    header_cells[idx].text = header
-                    header_cells[idx].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-                    for run in header_cells[idx].paragraphs[0].runs:
-                        run.font.bold = True
-                        run.font.rtl = True
-                        run.font.size = Pt(12)
-
-                    # إضافة تظليل للعناوين
-                    try:
-                        shading_elm = parse_xml(r'<w:shd {} w:fill="DDDDDD"/>'.format(nsdecls('w')))
-                        header_cells[idx]._element.get_or_add_tcPr().append(shading_elm)
-                    except:
-                        pass
-
-                # إضافة بيانات المتدربين
-                for idx, student in enumerate(students_data):
-                    row_cells = students_table.add_row().cells
-
-                    if is_excluded:
-                        # للمستبعدين: name, rank, national_id, course, exclusion_reason, excluded_date
-                        name, rank, national_id, course, exclusion_reason, excluded_date = student
-
-                        row_cells[6].text = str(idx + 1)  # العدد التسلسلي
-                        row_cells[5].text = name  # الاسم
-                        row_cells[4].text = rank  # الرتبة
-                        row_cells[3].text = national_id  # رقم الهوية
-                        row_cells[2].text = course  # اسم الدورة
-                        row_cells[1].text = exclusion_reason if exclusion_reason else "لم يحدد سبب"  # سبب الاستبعاد
-                        row_cells[0].text = excluded_date if excluded_date else ""  # تاريخ الاستبعاد
+                # تنسيق
+                for cell in cells:
+                    para = cell.paragraphs[0]
+                    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    if para.runs:
+                        run = para.runs[0]
                     else:
-                        # للحالات الأخرى
-                        national_id, name, rank, course, status, reason = student
-
-                        if has_reason:
-                            row_cells[5].text = str(idx + 1)  # العدد التسلسلي
-                            row_cells[4].text = name  # الاسم
-                            row_cells[3].text = rank  # الرتبة
-                            row_cells[2].text = national_id  # رقم الهوية
-                            row_cells[1].text = course  # اسم الدورة
-                            row_cells[0].text = reason if reason else "لم يحدد سبب"  # السبب
-                        else:
-                            row_cells[4].text = str(idx + 1)  # العدد التسلسلي
-                            row_cells[3].text = name  # الاسم
-                            row_cells[2].text = rank  # الرتبة
-                            row_cells[1].text = national_id  # رقم الهوية
-                            row_cells[0].text = course  # اسم الدورة
-
-                    # تنسيق خلايا البيانات
-                    for cell in row_cells:
-                        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-                        for run in cell.paragraphs[0].runs:
-                            run.font.rtl = True
-                            run.font.size = Pt(11)
-
-                # إضافة إجمالي عدد المتدربين
-                summary_para = doc.add_paragraph()
-                summary_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                summary_text = summary_para.add_run(f"إجمالي عدد المتدربين: {len(students_data)}")
-                summary_text.font.bold = True
-                summary_text.font.rtl = True
-                summary_text.font.size = Pt(12)
-
-                # إضافة فراغ بعد الجدول
-                doc.add_paragraph()
-
-            # إضافة جداول المتدربين في نفس الصفحة
-            # إضافة جدول المتدربين الغائبين
-            if absent_data:
-                add_students_table("بيان المتدربين الغائبين", absent_data)
-
-            # إضافة جدول المتدربين الغائبين بعذر
-            if excused_data:
-                add_students_table("بيان المتدربين الغائبين بعذر", excused_data, has_reason=True)
-
-            # إضافة جدول المتدربين المتأخرين
-            if late_data:
-                add_students_table("بيان المتدربين المتأخرين", late_data)
-
-            # إضافة جدول المتدربين في حالة "لم يباشر"
-            if not_started_data:
-                add_students_table("بيان المتدربين في حالة لم يباشر", not_started_data)
-
-            # إضافة جدول حالات الوفاة
-            if death_case_data:
-                add_students_table("بيان المتدربين في حالة وفاة", death_case_data, has_reason=True)
-
-            # إضافة جدول المتدربين المنومين
-            if hospital_data:
-                add_students_table("بيان المتدربين المنومين", hospital_data, has_reason=True)
-
-            # صفحة جديدة للغيابات المتكررة والمستبعدين والمستقبلين
-            if multiple_absences_data or excluded_students_data or received_students_data:
-                doc.add_page_break()
-
-            # إضافة جدول المتدربين الذين لديهم غيابات أكثر من يومين
-            if multiple_absences_data:
-                title_para = doc.add_heading(
-                    f"بيان المتدربين الذين لديهم غيابات متكررة (أكثر من يومين) حتى تاريخ {arabic_date}", level=2)
-                title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for run in title_para.runs:
-                    run.font.rtl = True
-                    run.font.bold = True
+                        run = para.add_run(cell.text)
                     run.font.size = Pt(14)
-
-                # إنشاء جدول للغيابات المتكررة
-                absence_table = doc.add_table(rows=1, cols=6)
-                absence_table.style = 'Table Grid'
-
-                # عناوين الجدول
-                headers = ["العدد", "الاسم", "الرتبة", "رقم الهوية", "الدورة", "عدد أيام الغياب"]
-                header_cells = absence_table.rows[0].cells
-
-                for i, header in enumerate(headers):
-                    idx = len(headers) - i - 1
-                    header_cells[idx].text = header
-                    header_cells[idx].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-                    for run in header_cells[idx].paragraphs[0].runs:
-                        run.font.bold = True
-                        run.font.rtl = True
-                        run.font.size = Pt(12)
-
-                    # إضافة تظليل للعناوين
-                    try:
-                        shading_elm = parse_xml(r'<w:shd {} w:fill="FFDDDD"/>'.format(nsdecls('w')))
-                        header_cells[idx]._element.get_or_add_tcPr().append(shading_elm)
-                    except:
-                        pass
-
-                # إضافة بيانات المتدربين
-                for idx, (national_id, name, rank, course, absence_count) in enumerate(multiple_absences_data):
-                    row_cells = absence_table.add_row().cells
-
-                    row_cells[5].text = str(idx + 1)  # العدد التسلسلي
-                    row_cells[4].text = name  # الاسم
-                    row_cells[3].text = rank  # الرتبة
-                    row_cells[2].text = national_id  # رقم الهوية
-                    row_cells[1].text = course  # اسم الدورة
-                    row_cells[0].text = str(absence_count)  # عدد أيام الغياب
-
-                    # تنسيق خلايا البيانات
-                    for cell in row_cells:
-                        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-                        for run in cell.paragraphs[0].runs:
-                            run.font.rtl = True
-                            run.font.size = Pt(11)
-
-                # إضافة إجمالي عدد المتدربين
-                summary_para = doc.add_paragraph()
-                summary_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                summary_text = summary_para.add_run(
-                    f"  {len(multiple_absences_data)}")
-                summary_text.font.bold = True
-                summary_text.font.rtl = True
-                summary_text.font.size = Pt(12)
-
-                doc.add_paragraph()
-
-            # إضافة جدول المستبعدين من جميع الدورات
-            if excluded_students_data:
-                # تعديل: استخدام arabic_date بدلاً من today_date
-                title_para = doc.add_heading(f"المستبعدين من جميع الدورات المنعقدة حتى تاريخ {arabic_date}", level=2)
-                title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for run in title_para.runs:
-                    run.font.rtl = True
                     run.font.bold = True
-                    run.font.size = Pt(14)
+                    run.font.name = 'Arial'
+                
+                row.height = Inches(0.6)
 
-                add_students_table("", excluded_students_data, is_excluded=True, include_date_in_title=False)
+        # ============= التوقيعات =============
+        doc.add_page_break()
 
-            # ============== إضافة جدول المتدربين المستقبلين ==============
-            if received_students_data:
-                # إضافة فقرة فاصلة إذا كان هناك جدول قبله
-                if excluded_students_data or multiple_absences_data:
-                    doc.add_paragraph()
+        # خط زخرفي
+        doc.add_paragraph("━" * 50).alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # النظام
+        system_para = doc.add_paragraph()
+        system_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        sys_run = system_para.add_run("نظام إدارة الحضور والغياب الإلكتروني")
+        sys_run.font.size = Pt(20)
+        sys_run.font.bold = True
+        sys_run.font.name = 'Arial'
 
-                # عنوان الجدول
-                title_para = doc.add_heading(
-                    f"بيان بأسماء المتدربين الذين كانت حالتهم (لم يباشر) وتم استقبالهم بتاريخ {arabic_date}",
-                    level=2
-                )
-                title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for run in title_para.runs:
-                    run.font.rtl = True
-                    run.font.bold = True
-                    run.font.size = Pt(14)
-
-                # إنشاء جدول المستقبلين
-                received_table = doc.add_table(rows=1, cols=6)
-                received_table.style = 'Table Grid'
-
-                # عناوين الجدول
-                headers = ["العدد", "الاسم", "الرتبة", "رقم الهوية", " الدورة", "صاحب صلاحية المستقبل"]
-                header_cells = received_table.rows[0].cells
-
-                for i, header in enumerate(headers):
-                    idx = len(headers) - i - 1  # لترتيب العناوين من اليمين لليسار
-                    header_cells[idx].text = header
-                    header_cells[idx].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-                    for run in header_cells[idx].paragraphs[0].runs:
-                        run.font.bold = True
-                        run.font.rtl = True
-                        run.font.size = Pt(12)
-
-                    # إضافة تظليل للعناوين
-                    try:
-                        shading_elm = parse_xml(r'<w:shd {} w:fill="90EE90"/>'.format(nsdecls('w')))  # لون أخضر فاتح
-                        header_cells[idx]._element.get_or_add_tcPr().append(shading_elm)
-                    except:
-                        pass
-
-                # إضافة بيانات المتدربين المستقبلين
-                for idx, (national_id, name, rank, course, receiver_name) in enumerate(received_students_data):
-                    row_cells = received_table.add_row().cells
-
-                    row_cells[5].text = str(idx + 1)  # العدد التسلسلي
-                    row_cells[4].text = name  # الاسم
-                    row_cells[3].text = rank  # الرتبة
-                    row_cells[2].text = national_id  # رقم الهوية
-                    row_cells[1].text = course  # اسم الدورة
-                    row_cells[0].text = receiver_name  # اسم المستقبل
-
-                    # تنسيق خلايا البيانات
-                    for cell in row_cells:
-                        cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-                        for run in cell.paragraphs[0].runs:
-                            run.font.rtl = True
-                            run.font.size = Pt(11)
-
-                # إضافة إجمالي عدد المتدربين المستقبلين
-                summary_para = doc.add_paragraph()
-                summary_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                summary_text = summary_para.add_run(
-                    f" {len(received_students_data)}"
-                )
-                summary_text.font.bold = True
-                summary_text.font.rtl = True
-                summary_text.font.size = Pt(12)
-
-                # إضافة ملاحظة توضيحية
-                note_para = doc.add_paragraph()
-                note_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                note_text = note_para.add_run(
-                    ""
-                )
-                note_text.font.italic = True
-                note_text.font.rtl = True
-                note_text.font.size = Pt(10)
-                note_text.font.color.rgb = RGBColor(128, 128, 128)  # لون رمادي
-
-                doc.add_paragraph()  # فقرة فاصلة
-
-            # إضافة التوقيعات في نهاية المستند فقط
-            doc.add_paragraph()
+        # مساحة للتوقيع
+        for _ in range(6):
             doc.add_paragraph()
 
-            signatures_table = doc.add_table(rows=1, cols=3)
-            signatures_table.style = 'Table Grid'
+        # المستخدم
+        user_para = doc.add_paragraph()
+        user_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        user_run = user_para.add_run(f"المستخدم: {self.current_user['full_name']}")
+        user_run.font.size = Pt(18)
+        user_run.font.bold = True
+        user_run.font.name = 'Arial'
 
-            sig_cells = signatures_table.rows[0].cells
-            sig_cells[2].text = "اسم المراقب: ____________"
-            sig_cells[1].text = "رئيس قسم الفصول: ______________"
-            sig_cells[0].text = "مدير قسم شؤون المدربين: _____________"
+        # التوقيع
+        sig_para = doc.add_paragraph()
+        sig_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        sig_run = sig_para.add_run("التوقيع: ___________________________")
+        sig_run.font.size = Pt(16)
+        sig_run.font.name = 'Arial'
 
-            for cell in sig_cells:
-                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-                for run in cell.paragraphs[0].runs:
-                    run.font.rtl = True
-                    run.font.size = Pt(11)
+        # التاريخ والوقت
+        dt_para = doc.add_paragraph()
+        dt_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        dt_run = dt_para.add_run(f"التاريخ والوقت: {now}")
+        dt_run.font.size = Pt(14)
+        dt_run.font.name = 'Arial'
 
-            # حفظ المستند
-            export_file = filedialog.asksaveasfilename(
-                defaultextension=".docx",
-                filetypes=[("Word documents", "*.docx")],
-                initialfile=f"تكميل_الدورات_{selected_date_str}.docx"
-            )
+        # خط زخرفي نهائي
+        doc.add_paragraph("━" * 50).alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-            if export_file:
-                doc.save(export_file)
-                messagebox.showinfo("نجاح", f"تم تصدير تكميل الدورات بنجاح إلى:\n{export_file}")
-                # محاولة فتح الملف تلقائيًا
-                try:
-                    os.startfile(export_file)
-                except:
-                    pass
+        # حفظ المستند
+        export_file = filedialog.asksaveasfilename(
+            defaultextension=".docx",
+            filetypes=[("Word documents", "*.docx")],
+            initialfile=f"تقرير_شامل_{name}_{nid}.docx"
+        )
 
-        except Exception as e:
-            messagebox.showerror("خطأ", f"حدث خطأ أثناء تصدير البيانات: {str(e)}")
+        if export_file:
+            doc.save(export_file)
+            messagebox.showinfo("نجاح", f"تم تصدير التقرير الشامل بنجاح")
+
+            # محاولة فتح الملف
+            try:
+                os.startfile(export_file)
+            except:
+                pass
+
+    except Exception as e:
+        messagebox.showerror("خطأ", f"حدث خطأ أثناء تصدير البيانات: {str(e)}")
+        
 
     def update_statistics(self):
         cursor = self.conn.cursor()

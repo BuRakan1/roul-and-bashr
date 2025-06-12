@@ -5606,7 +5606,7 @@
                 pass
             messagebox.showerror("خطأ", f"حدث خطأ أثناء تصدير بيان المواظبة والسلوك: {str(e)}")
 
-    def backup_database(self):
+        def backup_database(self):
         """إنشاء نسخة احتياطية من قاعدة البيانات"""
         if not self.current_user["permissions"]["is_admin"]:
             messagebox.showwarning("تنبيه", "هذه الوظيفة متاحة للمشرفين فقط")
@@ -5634,3 +5634,214 @@
             messagebox.showinfo("نجاح", f"تم إنشاء نسخة احتياطية في: {backup_file}")
         except Exception as e:
             messagebox.showerror("خطأ", f"حدث خطأ أثناء إنشاء النسخة الاحتياطية: {str(e)}")
+
+    def restore_database(self):
+        """استرداد نسخة احتياطية من قاعدة البيانات"""
+        if not self.current_user["permissions"]["is_admin"]:
+            messagebox.showwarning("تنبيه", "هذه الوظيفة متاحة للمشرفين فقط")
+            return
+
+        import os
+        import shutil
+        import sys
+        import datetime
+
+        # التحقق من وجود مجلد النسخ الاحتياطي
+        backup_dir = "backup"
+        if not os.path.exists(backup_dir):
+            messagebox.showwarning("تنبيه", "لا يوجد مجلد للنسخ الاحتياطية")
+            return
+
+        # الحصول على قائمة ملفات النسخ الاحتياطية
+        backup_files = [f for f in os.listdir(backup_dir) if f.startswith("attendance_backup_") and f.endswith(".db")]
+
+        if not backup_files:
+            messagebox.showwarning("تنبيه", "لا توجد نسخ احتياطية متاحة")
+            return
+
+        # إنشاء نافذة لاختيار النسخة الاحتياطية
+        restore_window = tk.Toplevel(self.root)
+        restore_window.title("استرداد نسخة احتياطية")
+        restore_window.geometry("600x400")
+        restore_window.configure(bg=self.colors["light"])
+        restore_window.transient(self.root)
+        restore_window.grab_set()
+
+        # توسيط النافذة
+        x = (restore_window.winfo_screenwidth() - 600) // 2
+        y = (restore_window.winfo_screenheight() - 400) // 2
+        restore_window.geometry(f"600x400+{x}+{y}")
+
+        # عنوان النافذة
+        tk.Label(
+            restore_window,
+            text="استرداد نسخة احتياطية من قاعدة البيانات",
+            font=self.fonts["title"],
+            bg=self.colors["primary"],
+            fg="white",
+            padx=10, pady=10
+        ).pack(fill=tk.X)
+
+        # إطار القائمة
+        list_frame = tk.Frame(restore_window, bg=self.colors["light"])
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        tk.Label(
+            list_frame,
+            text="اختر النسخة الاحتياطية التي تريد استردادها:",
+            font=self.fonts["text_bold"],
+            bg=self.colors["light"]
+        ).pack(anchor=tk.W, pady=(0, 10))
+
+        # إنشاء قائمة النسخ الاحتياطية
+        backup_listbox = tk.Listbox(
+            list_frame,
+            font=self.fonts["text"],
+            selectbackground=self.colors["primary"],
+            selectforeground="white"
+        )
+        backup_listbox.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # تعبئة القائمة بالملفات مرتبة من الأحدث إلى الأقدم
+        backup_files.sort(reverse=True)
+        for file in backup_files:
+            # استخراج التاريخ والوقت من اسم الملف
+            date_str = file.replace("attendance_backup_", "").replace(".db", "")
+            try:
+                # محاولة تنسيق التاريخ بشكل مقروء
+                date_year = date_str[:4]
+                date_month = date_str[4:6]
+                date_day = date_str[6:8]
+                time_hour = date_str[9:11]
+                time_min = date_str[11:13]
+                time_sec = date_str[13:15]
+                display_date = f"{date_year}-{date_month}-{date_day} {time_hour}:{time_min}:{time_sec}"
+            except:
+                display_date = date_str
+
+            backup_listbox.insert(tk.END, f"{display_date} - {file}")
+
+        # إطار الأزرار
+        button_frame = tk.Frame(restore_window, bg=self.colors["light"], pady=10)
+        button_frame.pack(fill=tk.X, padx=10)
+
+        # تخزين المتغيرات المطلوبة للدالة الداخلية
+        def do_restore():
+            """تنفيذ عملية استرداد النسخة الاحتياطية المحددة"""
+            selection = backup_listbox.curselection()
+            if not selection:
+                messagebox.showwarning("تنبيه", "الرجاء اختيار نسخة احتياطية")
+                return
+
+            selected_item = backup_listbox.get(selection[0])
+            backup_file = selected_item.split(" - ")[1]
+            backup_path = os.path.join(backup_dir, backup_file)
+
+            # التأكيد على استرداد النسخة الاحتياطية
+            if not messagebox.askokcancel(
+                    "تأكيد الاسترداد",
+                    "سيتم استبدال قاعدة البيانات الحالية بالنسخة الاحتياطية المحددة.\n\n"
+                    "هذه العملية ستؤدي إلى فقدان أي تغييرات تمت منذ إنشاء هذه النسخة.\n\n"
+                    "هل أنت متأكد من المتابعة؟",
+                    icon="warning"
+            ):
+                return
+
+            # إغلاق الاتصال بقاعدة البيانات
+            self.conn.close()
+
+            try:
+                # إنشاء نسخة احتياطية إضافية من قاعدة البيانات الحالية (للأمان)
+                current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                safety_backup = os.path.join(backup_dir, f"pre_restore_{current_time}.db")
+
+                # نسخ ملف قاعدة البيانات الحالية كإجراء وقائي
+                try:
+                    shutil.copy2("attendance.db", safety_backup)
+                except:
+                    pass  # تجاهل الأخطاء في النسخ الوقائي
+
+                # استبدال قاعدة البيانات الحالية بالنسخة الاحتياطية
+                shutil.copy2(backup_path, "attendance.db")
+
+                messagebox.showinfo(
+                    "نجاح",
+                    f"تم استرداد النسخة الاحتياطية بنجاح.\n\n"
+                    f"ستتم إعادة تشغيل النظام الآن لتطبيق التغييرات."
+                )
+
+                # إغلاق نافذة الاسترداد
+                restore_window.destroy()
+
+                # إعادة تشغيل البرنامج
+                self.root.destroy()
+                python = sys.executable
+                os.execl(python, python, *sys.argv)
+
+            except Exception as e:
+                messagebox.showerror(
+                    "خطأ",
+                    f"حدث خطأ أثناء استرداد النسخة الاحتياطية:\n{str(e)}\n\n"
+                    "الرجاء إعادة تشغيل البرنامج يدوياً."
+                )
+                # محاولة إعادة فتح الاتصال بقاعدة البيانات في حال وجود خطأ
+                try:
+                    self.conn = sqlite3.connect("attendance.db")
+                except:
+                    pass
+
+        restore_btn = tk.Button(
+            button_frame,
+            text="استرداد النسخة المحددة",
+            font=self.fonts["text_bold"],
+            bg=self.colors["warning"],
+            fg="white",
+            padx=15, pady=5,
+            bd=0, relief=tk.FLAT,
+            cursor="hand2",
+            command=do_restore
+        )
+        restore_btn.pack(side=tk.LEFT, padx=5)
+
+        cancel_btn = tk.Button(
+            button_frame,
+            text="إلغاء",
+            font=self.fonts["text_bold"],
+            bg=self.colors["dark"],
+            fg="white",
+            padx=15, pady=5,
+            bd=0, relief=tk.FLAT,
+            cursor="hand2",
+            command=restore_window.destroy
+        )
+        cancel_btn.pack(side=tk.RIGHT, padx=5)
+
+        def optimize_database(self):
+        """تحسين وضبط أداء قاعدة البيانات"""
+        try:
+            cursor = self.conn.cursor()
+
+            # تشغيل أمر VACUUM لإعادة تنظيم قاعدة البيانات
+            cursor.execute("VACUUM")
+
+            # تحليل قاعدة البيانات
+            cursor.execute("ANALYZE")
+
+            # الحصول على إحصائيات
+            cursor.execute("PRAGMA page_count")
+            page_count = cursor.fetchone()[0]
+
+            cursor.execute("PRAGMA page_size")
+            page_size = cursor.fetchone()[0]
+
+            # حساب حجم قاعدة البيانات
+            db_size_mb = (page_count * page_size) / (1024 * 1024)
+
+            messagebox.showinfo(
+                "تحسين قاعدة البيانات",
+                f"تم تحسين وضبط قاعدة البيانات بنجاح.\n"
+                f"حجم قاعدة البيانات: {db_size_mb:.2f} ميجابايت"
+            )
+
+        except Exception as e:
+            messagebox.showerror("خطأ", f"حدث خطأ أثناء تحسين قاعدة البيانات: {str(e)}")
